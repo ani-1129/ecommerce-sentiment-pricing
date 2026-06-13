@@ -1,0 +1,62 @@
+# ═════════════════════════════════════════
+# Docker Compose for E-Commerce Pipeline
+# (No version - obsolete in Docker Compose v2+)
+# ═════════════════════════════════════════
+
+services:
+  # ═════════════════════════════════════════
+  # PostgreSQL Database (100% FREE)
+  # ═════════════════════════════════════════
+  postgres:
+    image: postgres:15
+    container_name: ecommerce_postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: ecommerce_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d ecommerce_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ecommerce_network
+
+  # ═════════════════════════════════════════
+  # Redis Streaming (100% FREE)
+  # ═════════════════════════════════════════
+  redis:
+    image: redis:7
+    container_name: ecommerce_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    networks:
+      - ecommerce_network
+
+# ═════════════════════════════════════════
+# Network Configuration
+# ═════════════════════════════════════════
+networks:
+  ecommerce_network:
+    driver: bridge
+
+# ═════════════════════════════════════════
+# Volume Configuration (FIXED!)
+# ═════════════════════════════════════════
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
