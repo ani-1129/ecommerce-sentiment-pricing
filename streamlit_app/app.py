@@ -367,8 +367,6 @@ if page == "📊 Overview":
     fig3.add_vline(x=0, line_color="#4a5568", line_dash="dash")
     fig3.update_layout(**base_layout(height=320,
         xaxis_title="Sentiment Score", yaxis_title="",
-        yaxis=dict(gridcolor=GRID_CLR),
-        xaxis=dict(gridcolor=GRID_CLR, range=[-1.2, 1.2]),
     ))
     st.plotly_chart(fig3, width='stretch')
 
