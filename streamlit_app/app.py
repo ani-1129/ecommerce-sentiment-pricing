@@ -351,7 +351,6 @@ if page == "📊 Overview":
         ))
         fig2.update_layout(**base_layout(height=300),
             xaxis_title="Rating", yaxis_title="Count",
-            xaxis=dict(tickvals=[1,2,3,4,5], ticktext=["1⭐","2⭐","3⭐","4⭐","5⭐"]),
         )
         st.plotly_chart(fig2, width='stretch')
 
