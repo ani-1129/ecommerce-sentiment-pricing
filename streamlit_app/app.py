@@ -428,7 +428,7 @@ if page == "📊 Overview":
             yaxis2=dict(title="Avg sentiment", overlaying="y", side="right",
                         range=[-1.1,1.1], gridcolor="rgba(0,0,0,0)"),
             legend=dict(orientation="h", y=1.1, x=0, bgcolor="rgba(0,0,0,0)"),
-        ))
+        )
         st.plotly_chart(fig6, width='stretch')
     else:
         st.info("Not enough date data for trend chart.")
