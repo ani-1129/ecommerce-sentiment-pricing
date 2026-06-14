@@ -6,12 +6,14 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import random
 
+
 st.set_page_config(
     page_title="E-Commerce Sentiment & Pricing Engine",
     page_icon="🛒",
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
 
 # ── CSS ─────────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -20,6 +22,7 @@ st.markdown("""
 [data-testid="stSidebar"] { background: #1a1d27; border-right: 1px solid #2d2f3e; }
 [data-testid="stSidebar"] * { color: #e0e0e0 !important; }
 .block-container { padding: 1.5rem 2rem 2rem; }
+
 
 .kpi-card {
     background: linear-gradient(135deg, #1e2130 0%, #252840 100%);
@@ -46,12 +49,14 @@ st.markdown("""
 .kpi-neg  { color: #f87171; }
 .kpi-neu  { color: #94a3b8; }
 
+
 .section-title {
     font-size: 17px; font-weight: 700; color: #e2e8f0;
     margin: 1.4rem 0 0.6rem;
     border-left: 3px solid #6366f1;
     padding-left: 10px;
 }
+
 
 .review-card {
     background: #1e2130;
@@ -71,6 +76,7 @@ st.markdown("""
 .review-text { font-size: 13px; color: #cbd5e1; line-height: 1.6; margin: 0; }
 .review-meta { font-size: 11px; color: #4a5568; margin-top: 6px; }
 
+
 .prod-row {
     display: flex; align-items: center;
     background: #1e2130; border: 1px solid #2d3050;
@@ -83,20 +89,20 @@ st.markdown("""
 .prod-stat-val { font-size: 16px; font-weight: 700; color: #fff; }
 .prod-stat-lbl { font-size: 10px; color: #8a8fa8; }
 
+
 [data-testid="stMetricValue"] { color: #fff !important; font-size: 28px !important; }
 [data-testid="stMetricLabel"] { color: #8a8fa8 !important; font-size: 12px !important; text-transform: uppercase; }
 </style>
 """, unsafe_allow_html=True)
 
+
 # ── Load & process data ──────────────────────────────────────────────────────
 @st.cache_data
 def load_csv():
     import io, os
-    # Try to load real CSV first
-    for path in ["mock_data.csv", "data/mock_data.csv", "data_ingestion/mock_data.csv"]:
+    for path in ["mock_data.csv", "streamlit_app/mock_data.csv", "data/mock_data.csv"]:
         if os.path.exists(path):
             return pd.read_csv(path)
-    # Fallback: generate demo data
     cats = ["Gaming", "Computers", "Electronics", "Accessories"]
     products = [
         "Wireless Bluetooth Headphones", "Portable SSD 1TB",
@@ -152,15 +158,13 @@ def load_csv():
         })
     return pd.DataFrame(rows)
 
+
 @st.cache_data
 def process(raw: pd.DataFrame):
     df = raw.copy()
-
-    # Separate orders and reviews
     orders = df[df["order_status"].notna()].copy()
     reviews = df[df["rating"].notna()].copy()
 
-    # Sentiment from rating
     def sentiment_label(r):
         if r >= 4: return "positive"
         if r <= 2: return "negative"
@@ -173,14 +177,12 @@ def process(raw: pd.DataFrame):
     reviews["sentiment_label"] = reviews["rating"].apply(sentiment_label)
     reviews["sentiment_score"]  = reviews["rating"].apply(sentiment_score).round(3)
 
-    # Product-level aggregates
     prod = reviews.groupby("product_name").agg(
         avg_sentiment=("sentiment_score", "mean"),
         avg_rating=("rating", "mean"),
         review_count=("review_id", "count"),
     ).reset_index()
 
-    # Add order data
     ord_agg = orders.groupby("product_name").agg(
         total_revenue=("price", lambda x: (x * orders.loc[x.index, "quantity"]).sum()),
         avg_price=("price", "mean"),
@@ -193,7 +195,6 @@ def process(raw: pd.DataFrame):
     prod["avg_rating"]    = prod["avg_rating"].round(2)
     prod["avg_price"]     = prod["avg_price"].fillna(80.0).round(2)
 
-    # Pricing recommendation
     def recommend_price(row):
         base = row.get("avg_price", 80.0)
         s = row["avg_sentiment"]
@@ -207,14 +208,15 @@ def process(raw: pd.DataFrame):
     prod["recommended_price"] = prod.apply(recommend_price, axis=1)
     prod["price_change_pct"]  = ((prod["recommended_price"] - prod["avg_price"]) / prod["avg_price"] * 100).round(1)
 
-    # Orders date parsing
     orders["order_date"] = pd.to_datetime(orders["order_date"], errors="coerce")
     reviews["review_date"] = pd.to_datetime(reviews["review_date"], errors="coerce")
 
     return orders, reviews, prod
 
+
 raw = load_csv()
 orders, reviews, prod = process(raw)
+
 
 # ── Sidebar ──────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -249,6 +251,7 @@ with st.sidebar:
 </small>
 """, unsafe_allow_html=True)
 
+
 # Apply filters
 rev_f = reviews[
     reviews["product_name"].isin(sel_prods) &
@@ -263,12 +266,14 @@ if sel_cats:
 
 prod_f = prod[prod["product_name"].isin(sel_prods)]
 
+
 # ── Chart theme ──────────────────────────────────────────────────────────────
 CHART_BG   = "#13151f"
 CHART_PAPER= "#13151f"
 GRID_CLR   = "#1e2130"
 FONT_CLR   = "#94a3b8"
 ACCENT     = "#6366f1"
+
 
 def base_layout(**kw):
     return dict(
@@ -281,17 +286,18 @@ def base_layout(**kw):
         **kw,
     )
 
+
 def sentiment_color(label):
     return {"positive": "#4ade80", "negative": "#f87171", "neutral": "#94a3b8"}.get(label, "#94a3b8")
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # PAGE: OVERVIEW
 # ════════════════════════════════════════════════════════════════════════════
 if page == "📊 Overview":
     st.markdown("# 📊 E-Commerce Sentiment Dashboard")
-    st.caption(f"Last refreshed: {datetime.now().strftime('%d %b %Y, %H:%M')}  ·  Showing filtered data")
+    st.caption(f"Last refreshed: {datetime.now().strftime('%d %b %Y, %H:%M')}   ·   Showing filtered data")
 
-    # KPI row
     total_reviews   = len(rev_f)
     avg_sentiment   = rev_f["sentiment_score"].mean() if len(rev_f) else 0
     avg_rating      = rev_f["rating"].mean() if len(rev_f) else 0
@@ -318,7 +324,6 @@ if page == "📊 Overview":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Row 1: Sentiment donut + Rating histogram
     col_a, col_b = st.columns([1, 1])
 
     with col_a:
@@ -334,7 +339,7 @@ if page == "📊 Overview":
         fig.update_layout(**base_layout(height=300, showlegend=False,
             annotations=[dict(text=f"{total_reviews}<br><span style='font-size:11px'>reviews</span>",
                               x=0.5, y=0.5, font_size=18, font_color="#fff", showarrow=False)]))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     with col_b:
         st.markdown('<div class="section-title">Rating Distribution</div>', unsafe_allow_html=True)
@@ -344,15 +349,12 @@ if page == "📊 Overview":
             marker_color=["#f87171","#fb923c","#facc15","#a3e635","#4ade80"],
             text=rc.values, textposition="outside", textfont=dict(color="#e2e8f0"),
         ))
-        fig2.update_layout(**base_layout(height=300,
+        fig2.update_layout(**base_layout(height=300),
             xaxis_title="Rating", yaxis_title="Count",
-            xaxis=dict(tickvals=[1,2,3,4,5], ticktext=["1⭐","2⭐","3⭐","4⭐","5⭐"],
-                       gridcolor=GRID_CLR),
-            yaxis=dict(gridcolor=GRID_CLR),
-        ))
-        st.plotly_chart(fig2, use_container_width=True)
+            xaxis=dict(tickvals=[1,2,3,4,5], ticktext=["1⭐","2⭐","3⭐","4⭐","5⭐"]),
+        )
+        st.plotly_chart(fig2, width='stretch')
 
-    # Row 2: Sentiment by product (horizontal bar)
     st.markdown('<div class="section-title">Sentiment Score by Product</div>', unsafe_allow_html=True)
     prod_sorted = prod_f.sort_values("avg_sentiment")
     colors_bar = ["#4ade80" if s > 0.2 else "#f87171" if s < -0.1 else "#94a3b8"
@@ -369,16 +371,15 @@ if page == "📊 Overview":
         yaxis=dict(gridcolor=GRID_CLR),
         xaxis=dict(gridcolor=GRID_CLR, range=[-1.2, 1.2]),
     ))
-    st.plotly_chart(fig3, use_container_width=True)
+    st.plotly_chart(fig3, width='stretch')
 
-    # Row 3: Orders by status + Category revenue
     col_c, col_d = st.columns([1, 1])
 
     with col_c:
         st.markdown('<div class="section-title">Order Status Breakdown</div>', unsafe_allow_html=True)
         st_cnt = ord_f["order_status"].value_counts()
         status_colors = {"Delivered":"#4ade80","Shipped":"#60a5fa",
-                         "Processing":"#facc15","Cancelled":"#f87171"}
+                        "Processing":"#facc15","Cancelled":"#f87171"}
         fig4 = go.Figure(go.Pie(
             labels=st_cnt.index, values=st_cnt.values,
             marker_colors=[status_colors.get(s,"#94a3b8") for s in st_cnt.index],
@@ -386,7 +387,7 @@ if page == "📊 Overview":
             textfont=dict(size=12, color="#e2e8f0"),
         ))
         fig4.update_layout(**base_layout(height=280, showlegend=False))
-        st.plotly_chart(fig4, use_container_width=True)
+        st.plotly_chart(fig4, width='stretch')
 
     with col_d:
         st.markdown('<div class="section-title">Revenue by Category</div>', unsafe_allow_html=True)
@@ -402,12 +403,9 @@ if page == "📊 Overview":
         ))
         fig5.update_layout(**base_layout(height=280,
             xaxis_title="Revenue (₹)", yaxis_title="",
-            yaxis=dict(gridcolor=GRID_CLR),
-            xaxis=dict(gridcolor=GRID_CLR),
         ))
-        st.plotly_chart(fig5, use_container_width=True)
+        st.plotly_chart(fig5, width='stretch')
 
-    # Daily reviews trend
     st.markdown('<div class="section-title">Daily Review Volume & Sentiment Trend</div>', unsafe_allow_html=True)
     rev_trend = rev_f.copy()
     rev_trend["date"] = pd.to_datetime(rev_trend["review_date"], errors="coerce").dt.date
@@ -434,18 +432,15 @@ if page == "📊 Overview":
                         range=[-1.1,1.1], gridcolor="rgba(0,0,0,0)"),
             legend=dict(orientation="h", y=1.1, x=0, bgcolor="rgba(0,0,0,0)"),
         ))
-        st.plotly_chart(fig6, use_container_width=True)
+        st.plotly_chart(fig6, width='stretch')
     else:
         st.info("Not enough date data for trend chart.")
 
-# ════════════════════════════════════════════════════════════════════════════
-# PAGE: PRICING ENGINE
-# ════════════════════════════════════════════════════════════════════════════
+
 elif page == "💰 Pricing Engine":
     st.markdown("# 💰 Dynamic Pricing Engine")
     st.caption("AI-driven price recommendations based on sentiment analysis")
 
-    # Scatter: current vs recommended
     st.markdown('<div class="section-title">Current vs Recommended Price</div>', unsafe_allow_html=True)
     pf = prod_f.dropna(subset=["avg_price","recommended_price"])
     fig = go.Figure()
@@ -466,16 +461,12 @@ elif page == "💰 Pricing Engine":
     ))
     fig.update_layout(**base_layout(height=380,
         xaxis_title="Current Price (₹)", yaxis_title="Recommended Price (₹)",
-        xaxis=dict(gridcolor=GRID_CLR), yaxis=dict(gridcolor=GRID_CLR),
     ))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
-    # Product pricing cards
     st.markdown('<div class="section-title">Pricing Recommendations</div>', unsafe_allow_html=True)
     for _, row in prod_f.sort_values("price_change_pct", ascending=False).iterrows():
         chg = row.get("price_change_pct", 0)
-        arrow = "📈" if chg > 0 else ("📉" if chg < 0 else "➡️")
-        chg_color = "#4ade80" if chg > 0 else ("#f87171" if chg < 0 else "#94a3b8")
         sent = row.get("avg_sentiment", 0)
         sent_color = "#4ade80" if sent > 0.2 else ("#f87171" if sent < -0.1 else "#94a3b8")
         cur  = row.get("avg_price", 0)
@@ -494,9 +485,7 @@ elif page == "💰 Pricing Engine":
         st.progress(bar_val)
         st.markdown("<div style='margin-bottom:6px'></div>", unsafe_allow_html=True)
 
-# ════════════════════════════════════════════════════════════════════════════
-# PAGE: REVIEWS
-# ════════════════════════════════════════════════════════════════════════════
+
 elif page == "💬 Reviews":
     st.markdown("# 💬 Customer Reviews — AI Sentiment Analysis")
 
@@ -523,13 +512,11 @@ elif page == "💬 Reviews":
     scol, sasc = sort_map[sort_by]
     frev = frev.sort_values(scol, ascending=sasc)
 
-    # Summary metrics
     mc1, mc2, mc3 = st.columns(3)
     mc1.metric("Filtered Reviews", len(frev))
     mc2.metric("Avg Sentiment", f"{frev['sentiment_score'].mean():+.3f}" if len(frev) else "—")
     mc3.metric("Avg Rating", f"{frev['rating'].mean():.2f}" if len(frev) else "—")
 
-    # Sentiment heatmap by product x rating
     st.markdown('<div class="section-title">Sentiment Heatmap — Product × Rating</div>', unsafe_allow_html=True)
     heat = frev.groupby(["product_name","rating"])["sentiment_score"].mean().reset_index()
     heat_pivot = heat.pivot(index="product_name", columns="rating", values="sentiment_score")
@@ -538,17 +525,14 @@ elif page == "💬 Reviews":
             z=heat_pivot.values, x=[f"{r}⭐" for r in heat_pivot.columns],
             y=heat_pivot.index,
             colorscale=[[0,"#f87171"],[0.5,"#1e2130"],[1,"#4ade80"]],
-            zmid=0, text=np.round(heat_pivot.values, 2),
-            texttemplate="%{text}", textfont=dict(size=11, color="#e2e8f0"),
+            zmid=0, text=np.round(heat_pivot.values, 2), texttemplate="%{text}", textfont=dict(size=11, color="#e2e8f0"),
             hovertemplate="Product: %{y}<br>Rating: %{x}<br>Avg Sentiment: %{z:.3f}<extra></extra>",
         ))
         fig_h.update_layout(**base_layout(height=260,
             xaxis_title="Rating", yaxis_title="",
-            yaxis=dict(gridcolor=GRID_CLR), xaxis=dict(gridcolor=GRID_CLR),
         ))
-        st.plotly_chart(fig_h, use_container_width=True)
+        st.plotly_chart(fig_h, width='stretch')
 
-    # Review cards
     st.markdown('<div class="section-title">Review Feed</div>', unsafe_allow_html=True)
     show_n = st.slider("Show reviews", 5, min(50, len(frev)), min(15, len(frev)))
     for _, row in frev.head(show_n).iterrows():
@@ -573,9 +557,7 @@ elif page == "💬 Reviews":
   <div class="review-meta">{r_date} · {vp}</div>
 </div>""", unsafe_allow_html=True)
 
-# ════════════════════════════════════════════════════════════════════════════
-# PAGE: ORDERS
-# ════════════════════════════════════════════════════════════════════════════
+
 elif page == "📦 Orders":
     st.markdown("# 📦 Orders Analytics")
 
@@ -583,7 +565,6 @@ elif page == "📦 Orders":
     o["revenue"] = o["price"] * o["quantity"].fillna(1)
     o["order_date"] = pd.to_datetime(o["order_date"], errors="coerce")
 
-    # KPIs
     k1,k2,k3,k4 = st.columns(4)
     k1.metric("Total Orders",   len(o))
     k2.metric("Total Revenue",  f"₹{o['revenue'].sum():,.0f}")
@@ -596,14 +577,14 @@ elif page == "📦 Orders":
         st.markdown('<div class="section-title">Orders by Status</div>', unsafe_allow_html=True)
         sc = o["order_status"].value_counts()
         status_colors = {"Delivered":"#4ade80","Shipped":"#60a5fa",
-                         "Processing":"#facc15","Cancelled":"#f87171"}
+                        "Processing":"#facc15","Cancelled":"#f87171"}
         fig = go.Figure(go.Bar(
             x=sc.index, y=sc.values,
             marker_color=[status_colors.get(s,"#94a3b8") for s in sc.index],
             text=sc.values, textposition="outside", textfont=dict(color="#e2e8f0"),
         ))
         fig.update_layout(**base_layout(height=280, xaxis_title="Status", yaxis_title="Orders"))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     with col2:
         st.markdown('<div class="section-title">Revenue by Product</div>', unsafe_allow_html=True)
@@ -615,9 +596,8 @@ elif page == "📦 Orders":
             textposition="outside", textfont=dict(color="#e2e8f0"),
         ))
         fig2.update_layout(**base_layout(height=280, xaxis_title="Revenue (₹)", yaxis_title=""))
-        st.plotly_chart(fig2, use_container_width=True)
+        st.plotly_chart(fig2, width='stretch')
 
-    # Revenue over time
     st.markdown('<div class="section-title">Daily Revenue Trend</div>', unsafe_allow_html=True)
     daily_rev = o.dropna(subset=["order_date"]).groupby(o["order_date"].dt.date)["revenue"].sum().reset_index()
     daily_rev.columns = ["date","revenue"]
@@ -629,17 +609,14 @@ elif page == "📦 Orders":
             mode="lines",
         ))
         fig3.update_layout(**base_layout(height=260, xaxis_title="Date", yaxis_title="Revenue (₹)"))
-        st.plotly_chart(fig3, use_container_width=True)
+        st.plotly_chart(fig3, width='stretch')
 
-    # Orders table
     st.markdown('<div class="section-title">Order Records</div>', unsafe_allow_html=True)
     show_cols = ["order_id","customer_id","product_name","category","price","quantity","order_status","shipping_city"]
     show_cols = [c for c in show_cols if c in o.columns]
-    st.dataframe(o[show_cols].head(100), use_container_width=True, hide_index=True)
+    st.dataframe(o[show_cols].head(100), width='stretch', hide_index=True)
 
-# ════════════════════════════════════════════════════════════════════════════
-# PAGE: PRODUCT DEEP DIVE
-# ════════════════════════════════════════════════════════════════════════════
+
 elif page == "🔍 Product Deep Dive":
     st.markdown("# 🔍 Product Deep Dive")
 
@@ -648,7 +625,6 @@ elif page == "🔍 Product Deep Dive":
     p_rev = rev_f[rev_f["product_name"] == pick]
     p_ord = ord_f[ord_f["product_name"] == pick]
 
-    # Metrics
     c1,c2,c3,c4,c5 = st.columns(5)
     c1.metric("Avg Sentiment", f"{p_row['avg_sentiment']:+.3f}")
     c2.metric("Avg Rating",    f"{p_row['avg_rating']:.2f}/5")
@@ -668,7 +644,7 @@ elif page == "🔍 Product Deep Dive":
             text=rc.values, textposition="outside", textfont=dict(color="#e2e8f0"),
         ))
         fig.update_layout(**base_layout(height=260))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     with col_b:
         st.markdown('<div class="section-title">Sentiment Over Time</div>', unsafe_allow_html=True)
@@ -683,30 +659,11 @@ elif page == "🔍 Product Deep Dive":
                 mode="lines+markers", marker=dict(size=5),
             ))
             fig2.add_hline(y=0, line_color="#4a5568", line_dash="dot")
-            fig2.update_layout(**base_layout(height=260,
-                yaxis=dict(range=[-1.1,1.1], gridcolor=GRID_CLR),
-                xaxis=dict(gridcolor=GRID_CLR),
-            ))
-            st.plotly_chart(fig2, use_container_width=True)
+            fig2.update_layout(**base_layout(height=260))
+            st.plotly_chart(fig2, width='stretch')
         else:
             st.info("Not enough date data for trend.")
 
-    # Verified vs unverified sentiment
-    st.markdown('<div class="section-title">Verified vs Unverified Purchase Sentiment</div>', unsafe_allow_html=True)
-    if "verified_purchase" in p_rev.columns:
-        vp_group = p_rev.groupby(p_rev["verified_purchase"].astype(str))["sentiment_score"].mean()
-        fig3 = go.Figure(go.Bar(
-            x=vp_group.index, y=vp_group.values,
-            marker_color=["#6366f1","#8b5cf6"],
-            text=[f"{v:+.3f}" for v in vp_group.values],
-            textposition="outside", textfont=dict(color="#e2e8f0"),
-        ))
-        fig3.update_layout(**base_layout(height=240,
-            xaxis_title="Verified Purchase", yaxis_title="Avg Sentiment",
-        ))
-        st.plotly_chart(fig3, use_container_width=True)
-
-    # Recent reviews
     st.markdown('<div class="section-title">Recent Reviews</div>', unsafe_allow_html=True)
     for _, row in p_rev.head(8).iterrows():
         sl = row.get("sentiment_label","neutral")
