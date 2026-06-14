@@ -424,7 +424,6 @@ if page == "📊 Overview":
         ))
         fig6.add_hline(y=0, line_color="#4a5568", line_dash="dot", yref="y2")
         fig6.update_layout(**base_layout(height=300),
-            yaxis=dict(title="Review count", gridcolor=GRID_CLR),
             yaxis2=dict(title="Avg sentiment", overlaying="y", side="right",
                         range=[-1.1,1.1], gridcolor="rgba(0,0,0,0)"),
             legend=dict(orientation="h", y=1.1, x=0, bgcolor="rgba(0,0,0,0)"),
