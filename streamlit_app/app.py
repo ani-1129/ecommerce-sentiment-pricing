@@ -530,7 +530,7 @@ elif page == "💬 Reviews":
         st.plotly_chart(fig_h, width='stretch')
 
     st.markdown('<div class="section-title">Review Feed</div>', unsafe_allow_html=True)
-    show_n = st.slider("Show reviews", 5, min(50, len(frev)), min(15, len(frev)))
+    show_n = st.slider("Show reviews", 5, min(50, len(frev)), default=min(15, len(frev)))
     for _, row in frev.head(show_n).iterrows():
         sl = row.get("sentiment_label","neutral")
         badge_cls = {"positive":"badge-pos","negative":"badge-neg","neutral":"badge-neu"}.get(sl,"badge-neu")
